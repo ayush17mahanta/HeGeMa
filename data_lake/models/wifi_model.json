@@ -1,0 +1,12 @@
+{
+  "modality": "wifi",
+  "model_type": "ModularRandomForest",
+  "sample_count": 119968,
+  "feature_columns": [
+    "signal_norm"
+  ],
+  "target_label": "z",
+  "status": "OPERATIONAL",
+  "accuracy": 93.78,
+  "inference_latency_ms": 0.0688
+}

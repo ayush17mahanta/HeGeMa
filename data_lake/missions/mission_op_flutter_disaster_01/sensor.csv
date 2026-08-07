@@ -1,0 +1,2 @@
+timestamp,wifi_ssid,wifi_bssid,wifi_rssi,wifi_freq,ble_mac,ble_rssi,audio_rms,audio_zcr,accel_x,accel_y,accel_z,gyro_x,gyro_y,gyro_z,room,people,movement,scenario,door
+2026-08-07T14:00:00.000Z,HEGEMA-AP-01,00:11:22:33:44:55,-61,2412,AA:BB:CC:DD:EE:FF,-72,0.22,0.31,0.01,0.08,9.81,0.00,0.01,0.00,Room_301,2,Walking,Calling_For_Help,Closed

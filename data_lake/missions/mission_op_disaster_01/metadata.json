@@ -1,0 +1,13 @@
+{
+  "mission_name": "OP-DISASTER-01",
+  "building": "Building_7",
+  "floor": "Floor_3",
+  "room": "Room_301",
+  "scenario": "Calling_For_Help",
+  "num_people": 2,
+  "movement_state": "Walking",
+  "door_state": "Closed",
+  "phone_position": "Pocket",
+  "esp32_id": "ESP32-NODE-01",
+  "total_frames": 3
+}

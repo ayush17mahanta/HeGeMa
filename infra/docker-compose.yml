@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  mqtt_broker:
+    image: eclipse-mosquitto:2.0
+    container_name: hegema_mqtt
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: hegema_postgres
+    environment:
+      POSTGRES_DB: hegema
+      POSTGRES_USER: hegema_admin
+      POSTGRES_PASSWORD: hegema_secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - hegema_pgdata:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    container_name: hegema_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - HEGEMA_ENV=production
+      - POSTGRES_HOST=postgres
+      - MQTT_HOST=mqtt_broker
+    depends_on:
+      - postgres
+      - mqtt_broker
+
+volumes:
+  hegema_pgdata:

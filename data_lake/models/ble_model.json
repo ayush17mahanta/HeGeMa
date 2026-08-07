@@ -1,0 +1,13 @@
+{
+  "modality": "ble",
+  "model_type": "ModularRandomForest",
+  "sample_count": 5000,
+  "feature_columns": [
+    "ble_rssi_norm",
+    "distance_est_norm"
+  ],
+  "target_label": "zone",
+  "status": "OPERATIONAL",
+  "accuracy": 96.44,
+  "inference_latency_ms": 0.085
+}

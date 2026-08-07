@@ -1,0 +1,15 @@
+{
+  "modality": "imu",
+  "model_type": "ModularRandomForest",
+  "sample_count": 5000,
+  "feature_columns": [
+    "accel_x_norm",
+    "accel_y_norm",
+    "accel_z_norm",
+    "gyro_mag_norm"
+  ],
+  "target_label": "activity_state",
+  "status": "OPERATIONAL",
+  "accuracy": 96.05,
+  "inference_latency_ms": 0.0412
+}

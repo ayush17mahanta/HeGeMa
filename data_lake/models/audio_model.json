@@ -1,0 +1,15 @@
+{
+  "modality": "audio",
+  "model_type": "ModularRandomForest",
+  "sample_count": 5000,
+  "feature_columns": [
+    "rms_energy_norm",
+    "zero_crossing_rate_norm",
+    "mfcc_1_norm",
+    "spectral_centroid_norm"
+  ],
+  "target_label": "acoustic_event",
+  "status": "OPERATIONAL",
+  "accuracy": 93.09,
+  "inference_latency_ms": 0.0846
+}
