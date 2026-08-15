@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react'
+import { useHEGEMARuntime } from '../context/RuntimeContext'
 import StatCard from '../components/StatCard'
 import FloorPlan from '../components/FloorPlan'
 import LiveAI from '../components/LiveAI'
@@ -9,108 +10,164 @@ import MissionRecorder from '../components/MissionRecorder'
 import Timeline from '../components/Timeline'
 import LiveTelemetryStream from '../components/LiveTelemetryStream'
 import AIAssistantWidget from '../components/AIAssistantWidget'
-
-const STAT_CARDS = [
-  {
-    icon: '📡',
-    label: 'ESP32 NODES',
-    value: 6,
-    trend: [3,4,5,4,6,6,6,5,6],
-    color: '#4F8CFF',
-    subtitle: 'All connected',
-  },
-  {
-    icon: '📱',
-    label: 'ANDROID DEVICES',
-    value: 3,
-    trend: [1,2,2,3,3,3,3,2,3],
-    color: '#00D4FF',
-    subtitle: 'Field team active',
-  },
-  {
-    icon: '📦',
-    label: 'PACKETS / MIN',
-    value: 1847,
-    trend: [900,1100,1400,1600,1700,1800,1750,1820,1847],
-    color: '#4ADE80',
-    subtitle: 'BLE + IMU + Audio',
-  },
-  {
-    icon: '🧠',
-    label: 'INFERENCES',
-    value: 2341,
-    trend: [800,1000,1300,1700,1900,2100,2200,2310,2341],
-    color: '#A78BFA',
-    subtitle: 'Total this session',
-  },
-  {
-    icon: '⚡',
-    label: 'AVG LATENCY',
-    value: 2.03,
-    unit: 'ms',
-    trend: [4.5,3.8,3.2,2.8,2.5,2.2,2.4,2.1,2.03],
-    color: '#FBBF24',
-    subtitle: 'End-to-end pipeline',
-  },
-  {
-    icon: '🎯',
-    label: 'CONFIDENCE',
-    value: 87,
-    unit: '%',
-    trend: [60,65,70,75,78,80,84,85,87],
-    color: '#4ADE80',
-    subtitle: 'Avg AI confidence',
-  },
-]
+import { CSISensorCard } from '../components/CSISensorCard'
 
 export default function Dashboard() {
-  const [missionActive, setMissionActive] = useState(true)
+  const runtime = useHEGEMARuntime()
+  const { systemMode, mission, selected_map, hardware_summary, telemetry_metrics, startMission, stopMission, startSimulation, stopSimulation } = runtime
 
-  const handleStartMission = () => {
-    setMissionActive(!missionActive)
-    alert(missionActive ? 'Mission OP-2847 paused.' : 'Mission OP-2847 activated! Hardware sniffer active.')
-  }
+  const [hardwareModalOpen, setHardwareModalOpen] = useState(false)
 
-  const handleOpenDemo = () => {
-    alert('Opening automated HEGEMA Disaster Rescue Demo Scenario across Building 7 Floor 3.')
-  }
-
-  const handleSimulation = async () => {
-    try {
-      const res = await fetch('http://localhost:8000/api/v1/simulation/step?scenario=earthquake_collapse', {
-        method: 'POST'
-      })
-      if (res.ok) {
-        alert('Simulation step triggered! Real-time heatmap probability distribution updated via FastAPI.')
-      } else {
-        alert('Simulation step executed on live floorplan grid!')
+  const handleStartMissionClick = async () => {
+    if (mission.status === 'ACTIVE') {
+      await stopMission()
+    } else {
+      const res = await startMission()
+      if (res.status === 'WAITING_FOR_HARDWARE') {
+        setHardwareModalOpen(true)
       }
-    } catch (e) {
-      alert('Simulation step executed on live floorplan grid!')
+    }
+  }
+
+  const handleToggleSimulation = async () => {
+    if (systemMode === 'SIMULATION') {
+      await stopSimulation()
+    } else {
+      await startSimulation('moving_survivors')
     }
   }
 
   const handleExportReport = () => {
     const reportData = {
-      mission_id: 'OP-2847',
-      location: 'Building 7 Floor 3',
+      mission_id: mission.mission_id || 'OP-NONE',
+      system_mode: systemMode,
+      mission_status: mission.status,
+      elapsed_seconds: mission.elapsed_seconds,
+      location: selected_map,
       timestamp: new Date().toISOString(),
-      active_nodes: 6,
-      survivors_detected: 4,
-      ai_confidence_avg: '87%',
-      sensor_modalities: ['Wi-Fi RSSI', 'BLE Beacon', 'Audio Acoustic', 'IMU Motion']
+      active_esp32_nodes: hardware_summary.esp32_count,
+      survivors_detected: systemMode === 'OFFLINE' ? 0 : (systemMode === 'SIMULATION' ? 4 : 0)
     }
     const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'HEGEMA_Mission_OP-2847_Report.json'
+    a.download = `HEGEMA_Mission_Report_${systemMode}.json`
     a.click()
     URL.revokeObjectURL(url)
   }
 
+  const statCards = [
+    {
+      icon: '⚡',
+      label: 'CSI SUB-CARRIERS',
+      value: systemMode === 'OFFLINE' ? 0 : 64,
+      trend: systemMode === 'OFFLINE' ? [0,0,0,0,0,0,0,0,0] : [64,64,64,64,64,64,64,64,64],
+      color: '#06B6D4',
+      subtitle: systemMode === 'OFFLINE' ? 'CSI Unavailable' : 'HT20 / 2.4 GHz',
+    },
+    {
+      icon: '📡',
+      label: 'ESP32 NODES',
+      value: hardware_summary.esp32_count,
+      trend: [0,0,0,0,0,0,0,0,hardware_summary.esp32_count],
+      color: '#4F8CFF',
+      subtitle: systemMode === 'REAL' ? `${hardware_summary.csi_node_count} CSI Active` : 'No Hardware Connected',
+    },
+    {
+      icon: '📱',
+      label: 'ANDROID DEVICES',
+      value: hardware_summary.android_count,
+      trend: [0,0,0,0,0,0,0,0,hardware_summary.android_count],
+      color: '#00D4FF',
+      subtitle: hardware_summary.android_count > 0 ? 'Field Device Connected' : 'Waiting for Device',
+    },
+    {
+      icon: '📦',
+      label: 'PACKETS / MIN',
+      value: systemMode === 'REAL' ? telemetry_metrics.packets_per_minute : (systemMode === 'SIMULATION' ? 1847 : 0),
+      trend: systemMode === 'OFFLINE' ? [0,0,0,0,0,0,0,0,0] : [1000,1200,1400,1600,1800,1847],
+      color: '#4ADE80',
+      subtitle: systemMode === 'OFFLINE' ? 'No Telemetry Stream' : 'Validated Telemetry',
+    },
+    {
+      icon: '🧠',
+      label: 'INFERENCES',
+      value: systemMode === 'REAL' ? telemetry_metrics.total_real_inferences : (systemMode === 'SIMULATION' ? 2341 : 0),
+      trend: systemMode === 'OFFLINE' ? [0,0,0,0,0,0,0,0,0] : [500,1000,1500,2000,2341],
+      color: '#A78BFA',
+      subtitle: systemMode === 'OFFLINE' ? 'Inference Idle' : 'AI Model Zoo',
+    },
+    {
+      icon: '🎯',
+      label: 'CONFIDENCE',
+      value: systemMode === 'OFFLINE' ? '—' : 87,
+      unit: systemMode === 'OFFLINE' ? '' : '%',
+      trend: systemMode === 'OFFLINE' ? [0,0,0,0,0,0,0,0,0] : [70,75,80,85,87],
+      color: '#4ADE80',
+      subtitle: systemMode === 'OFFLINE' ? 'No Live Evidence' : 'Fused AI Confidence',
+    },
+  ]
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, position: 'relative' }}>
+      {/* Waiting for Hardware Alert Modal */}
+      {hardwareModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center text-xl mx-auto mb-4">
+              ⚠️
+            </div>
+            <h3 className="text-lg font-bold text-center text-slate-100 uppercase tracking-wider">CANNOT START LIVE MISSION</h3>
+            <p className="text-xs text-slate-400 text-center mt-2 leading-relaxed">
+              No physical ESP32 or Android sniffer nodes are currently connected. HEGEMA strictly enforces ZERO-FABRICATION rules and will not start mission timers or manufacture fake telemetry.
+            </p>
+
+            <div className="my-4 bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-xs font-mono space-y-1">
+              <div className="flex justify-between text-slate-400">
+                <span>ESP32 Hardware Sniffer:</span>
+                <span className="text-amber-400 font-bold">OFFLINE</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Android Sensor App:</span>
+                <span className="text-amber-400 font-bold">OFFLINE</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setHardwareModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-300 text-xs font-bold hover:bg-slate-800"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => { setHardwareModalOpen(false); handleToggleSimulation() }}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-slate-950 text-xs font-bold hover:bg-amber-400"
+              >
+                Start Simulation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Persistent Simulation Watermark Banner when SIMULATION mode is active */}
+      {systemMode === 'SIMULATION' && (
+        <div className="w-full bg-amber-950/90 border-2 border-amber-500 text-amber-300 px-4 py-2 rounded-xl text-xs font-mono font-bold flex items-center justify-between shadow-lg shadow-amber-950/50">
+          <div className="flex items-center space-x-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+            <span>⚠ SIMULATION MODE ACTIVE — SYNTHETIC TELEMETRY (NO PHYSICAL HARDWARE CONNECTED)</span>
+          </div>
+          <button
+            onClick={handleToggleSimulation}
+            className="px-3 py-1 bg-amber-500 text-slate-950 rounded hover:bg-amber-400 font-bold uppercase transition-all"
+          >
+            STOP SIMULATION
+          </button>
+        </div>
+      )}
+
       {/* Hero Banner */}
       <div
         style={{
@@ -124,13 +181,23 @@ export default function Dashboard() {
         }}
       >
         <div style={{ position: 'absolute', top: -80, right: -60, width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(79,140,255,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -60, right: 120, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,212,255,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
-
+        
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: '#4F8CFF', marginBottom: 8 }}>
-              HEGEMA · HUMAN ECHO GEO MAPPING AI
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: '#4F8CFF' }}>
+                HEGEMA · HUMAN ECHO GEO MAPPING AI
+              </span>
+              
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                systemMode === 'REAL' 
+                  ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' 
+                  : (systemMode === 'SIMULATION' ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' : 'bg-slate-200 text-slate-600 border-slate-300')
+              }`}>
+                {systemMode === 'REAL' ? '🟢 REAL HARDWARE' : (systemMode === 'SIMULATION' ? '🟠 SIMULATION' : '⚪ OFFLINE')}
+              </span>
             </div>
+
             <h1 style={{ fontSize: 44, fontWeight: 900, color: '#111827', margin: 0, letterSpacing: -2, lineHeight: 1.05 }}>
               AI Search & Rescue
               <br />
@@ -138,19 +205,20 @@ export default function Dashboard() {
                 Command Center
               </span>
             </h1>
-            <p style={{ fontSize: 15, color: '#6B7280', marginTop: 10, maxWidth: 520, lineHeight: 1.6 }}>
-              Real-time survivor spatial estimation using Wi-Fi RSSI, BLE, IMU, and Audio multi-sensor fusion.
+            <p style={{ fontSize: 15, color: '#6B7280', marginTop: 10, maxWidth: 540, lineHeight: 1.6 }}>
+              Real-time survivor spatial estimation using Wi-Fi CSI, RSSI, BLE, IMU, and Audio multi-sensor fusion.
             </p>
 
             <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-              <button className="btn-primary ripple-container" onClick={handleStartMission} style={{ padding: '12px 24px', fontSize: 13 }}>
-                {missionActive ? '⏹ Pause Mission' : '▶ Start Mission'}
+              <button className="btn-primary ripple-container" onClick={handleStartMissionClick} style={{ padding: '12px 24px', fontSize: 13 }}>
+                {mission.status === 'ACTIVE' ? '⏹ Pause Mission' : '▶ Start Mission'}
               </button>
-              <button className="btn-secondary ripple-container" onClick={handleOpenDemo} style={{ padding: '12px 22px', fontSize: 13, color: '#4F8CFF', fontWeight: 700 }}>
-                Open Demo
-              </button>
-              <button className="btn-secondary ripple-container" onClick={handleSimulation} style={{ padding: '12px 22px', fontSize: 13, color: '#6B7280' }}>
-                Simulation Step
+              <button 
+                className="btn-secondary ripple-container" 
+                onClick={handleToggleSimulation} 
+                style={{ padding: '12px 22px', fontSize: 13, color: systemMode === 'SIMULATION' ? '#D97706' : '#4F8CFF', fontWeight: 700 }}
+              >
+                {systemMode === 'SIMULATION' ? 'Stop Simulation' : 'Start Simulation'}
               </button>
               <button className="btn-secondary ripple-container" onClick={handleExportReport} style={{ padding: '12px 22px', fontSize: 13, color: '#6B7280' }}>
                 Export Research Package
@@ -161,10 +229,11 @@ export default function Dashboard() {
           {/* Mission stats mini */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 200 }}>
             {[
-              { label: 'Mission ID', value: 'OP-2847', color: '#4F8CFF' },
-              { label: 'Location', value: 'Building 7 · Floor 3', color: '#4ADE80' },
-              { label: 'Survivors', value: '4 detected', color: '#FBBF24' },
-              { label: 'Grid Coverage', value: '78%', color: '#00D4FF' },
+              { label: 'Mission Status', value: mission.status, color: mission.status === 'ACTIVE' ? '#4ADE80' : (mission.status === 'WAITING_FOR_HARDWARE' ? '#FBBF24' : '#9CA3AF') },
+              { label: 'Selected Map', value: `${selected_map.building} · ${selected_map.floor}`, color: '#4F8CFF' },
+              { label: 'Survivors', value: systemMode === 'OFFLINE' ? '0' : (systemMode === 'SIMULATION' ? '4 detected' : '0'), color: '#FBBF24' },
+              { label: 'CSI Hardware', value: hardware_summary.csi_node_count > 0 ? `${hardware_summary.csi_node_count} Active` : 'Unavailable', color: '#06B6D4' },
+              { label: 'Grid Coverage', value: systemMode === 'OFFLINE' ? '0%' : '78%', color: '#00D4FF' },
             ].map(s => (
               <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20 }}>
                 <span style={{ fontSize: 12, color: '#9CA3AF', fontWeight: 500 }}>{s.label}</span>
@@ -180,41 +249,48 @@ export default function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 800, color: '#111827' }}>Live Tactical Command Floorplan</div>
-            <div style={{ fontSize: 12, color: '#6B7280' }}>Building 7 · Floor 3 · Real-time AI heatmap & node wave propagation</div>
+            <div style={{ fontSize: 12, color: '#6B7280' }}>{selected_map.building} · {selected_map.floor} · Real-time AI heatmap & CSI evidence layer</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <span style={{ padding: '5px 12px', borderRadius: 20, background: 'rgba(74,222,128,0.12)', border: '1px solid rgba(74,222,128,0.25)', fontSize: 11, fontWeight: 800, color: '#16a34a' }}>
-              ● LIVE HARDWARE MESH
+            <span className={`px-3 py-1 rounded-full text-xs font-mono font-bold border ${
+              systemMode === 'REAL' 
+                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' 
+                : (systemMode === 'SIMULATION' ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' : 'bg-slate-100 text-slate-500 border-slate-300')
+            }`}>
+              {systemMode === 'REAL' ? '🟢 LIVE HARDWARE MESH' : (systemMode === 'SIMULATION' ? '🟠 SYNTHETIC SIMULATION STREAM' : '⚪ NO HARDWARE CONNECTED')}
             </span>
           </div>
         </div>
-        <FloorPlan />
+        <FloorPlan systemMode={systemMode} hardwareCount={hardware_summary.esp32_count} />
       </div>
+
+      {/* CSI Sensor Plugin Card */}
+      <CSISensorCard systemMode={systemMode} />
 
       {/* Stats Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 16 }}>
-        {STAT_CARDS.map((card, i) => (
+        {statCards.map((card, i) => (
           <StatCard key={card.label} {...card} delay={i * 60} />
         ))}
       </div>
 
       {/* Live Sensor Telemetry Stream & Command Log */}
-      <LiveTelemetryStream />
+      <LiveTelemetryStream systemMode={systemMode} />
 
       {/* Live AI Attributions Drawer & Timeline */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }}>
-        <Timeline />
-        <LiveAI />
+        <Timeline systemMode={systemMode} />
+        <LiveAI systemMode={systemMode} />
       </div>
 
       {/* Bottom row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        <MissionRecorder />
+        <MissionRecorder systemMode={systemMode} />
         <SystemHealth />
       </div>
 
       {/* Floating Command AI Assistant */}
-      <AIAssistantWidget />
+      <AIAssistantWidget systemMode={systemMode} />
     </div>
   )
 }

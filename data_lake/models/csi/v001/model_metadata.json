@@ -1,0 +1,18 @@
+{
+  "model_version": "v001",
+  "trained_at": "2026-08-12T14:04:32Z",
+  "accuracy": 1.0,
+  "test_samples": 200,
+  "feature_names": [
+    "amplitude_mean",
+    "amplitude_std",
+    "temporal_variance",
+    "doppler_proxy",
+    "amplitude_entropy"
+  ],
+  "class_mapping": {
+    "0": "NO_HUMAN_EVIDENCE",
+    "1": "HUMAN_PRESENCE_EVIDENCE"
+  },
+  "status": "VERSIONED_ARTIFACT"
+}

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { useHEGEMARuntime } from '../context/RuntimeContext'
 
 type Page = 'dashboard' | 'analytics' | 'dataset' | 'settings'
 
@@ -17,14 +19,27 @@ interface SidebarProps {
   onNavigate?: (p: Page) => void
 }
 
-export default function Sidebar({ page }: SidebarProps) {
+export default function Sidebar({ page, onNavigate }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
-  const router = useRouter()
   const pathname = usePathname()
 
-  const handleNav = (itemPath: string) => {
-    router.push(itemPath)
+  const runtime = useHEGEMARuntime()
+  const { systemMode, mission, selected_map, hardware_summary, services } = runtime
+
+  const getMissionBadge = () => {
+    if (mission.status === 'ACTIVE') {
+      return { label: 'MISSION ACTIVE', color: '#4ADE80', bg: 'rgba(74,222,128,0.12)', border: 'rgba(74,222,128,0.2)' }
+    }
+    if (mission.status === 'WAITING_FOR_HARDWARE') {
+      return { label: 'WAITING FOR HARDWARE', color: '#FBBF24', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.2)' }
+    }
+    if (mission.status === 'PAUSED') {
+      return { label: 'MISSION PAUSED', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.2)' }
+    }
+    return { label: 'MISSION IDLE', color: '#94A3B8', bg: '#F1F5F9', border: '#E2E8F0' }
   }
+
+  const badge = getMissionBadge()
 
   return (
     <aside
@@ -47,32 +62,19 @@ export default function Sidebar({ page }: SidebarProps) {
       }}
     >
       {/* Logo */}
-      <div style={{ padding: collapsed ? '0 16px' : '0 24px', marginBottom: 40 }}>
+      <div style={{ padding: collapsed ? '0 16px' : '0 24px', marginBottom: 32 }}>
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            cursor: 'pointer',
-          }}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
           onClick={() => setCollapsed(!collapsed)}
           title="Click to collapse / expand navigation"
         >
           <div
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: 12,
+              width: 40, height: 40, borderRadius: 12,
               background: 'linear-gradient(135deg, #4F8CFF 0%, #00D4FF 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              boxShadow: '0 4px 16px rgba(79,140,255,0.35)',
-              fontSize: 18,
-              fontWeight: 800,
-              color: 'white',
-              fontStyle: 'italic',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, boxShadow: '0 4px 16px rgba(79,140,255,0.35)',
+              fontSize: 18, fontWeight: 800, color: 'white', fontStyle: 'italic',
             }}
           >
             H
@@ -90,109 +92,124 @@ export default function Sidebar({ page }: SidebarProps) {
         </div>
       </div>
 
-      {/* Mission Status */}
+      {/* Mission Status Badge */}
       {!collapsed && (
-        <div
+        <Link
+          href="/"
           style={{
-            margin: '0 16px 24px',
+            margin: '0 16px 20px',
             padding: '12px 16px',
             borderRadius: 16,
-            background: 'linear-gradient(135deg, rgba(74,222,128,0.12) 0%, rgba(0,212,255,0.08) 100%)',
-            border: '1px solid rgba(74,222,128,0.2)',
+            background: badge.bg,
+            border: `1px solid ${badge.border}`,
             cursor: 'pointer',
+            textDecoration: 'none',
+            display: 'block',
           }}
-          onClick={() => router.push('/')}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div
               style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: '#4ADE80',
-                animation: 'breathe 2s ease-in-out infinite',
+                width: 8, height: 8, borderRadius: '50%',
+                background: badge.color,
+                animation: mission.status === 'ACTIVE' ? 'breathe 2s ease-in-out infinite' : 'none',
               }}
             />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ADE80' }}>MISSION ACTIVE</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: badge.color, letterSpacing: 0.5 }}>
+              {badge.label}
+            </span>
           </div>
-          <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>Building 7 · Floor 3</div>
-        </div>
+          <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>
+            Map: {selected_map.building} · {selected_map.floor}
+          </div>
+        </Link>
       )}
 
-      {/* Nav */}
+      {/* Nav Items */}
       <nav style={{ flex: 1, padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
         {navItems.map(item => {
-          const active = pathname === item.path || (pathname === '/' && item.id === 'dashboard')
+          const active = page ? page === item.id : (pathname === item.path || (pathname === '/' && item.id === 'dashboard'))
           return (
-            <button
+            <Link
               key={item.id}
-              onClick={() => handleNav(item.path)}
-              className="sidebar-icon-btn ripple-container"
+              href={item.path}
+              onClick={() => {
+                if (onNavigate) {
+                  onNavigate(item.id)
+                }
+              }}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
+                display: 'flex', alignItems: 'center', gap: 14,
                 padding: collapsed ? '12px' : '12px 16px',
-                borderRadius: 16,
-                border: 'none',
-                cursor: 'pointer',
-                background: active
-                  ? 'linear-gradient(135deg, #4F8CFF 0%, #6fa3ff 100%)'
-                  : 'transparent',
+                borderRadius: 16, border: 'none', cursor: 'pointer',
+                background: active ? 'linear-gradient(135deg, #4F8CFF 0%, #6fa3ff 100%)' : 'transparent',
                 color: active ? 'white' : '#6B7280',
-                fontWeight: active ? 600 : 500,
-                fontSize: 14,
-                textAlign: 'left',
-                width: '100%',
+                fontWeight: active ? 600 : 500, fontSize: 14,
+                textAlign: 'left', width: '100%',
+                textDecoration: 'none',
                 justifyContent: collapsed ? 'center' : 'flex-start',
                 boxShadow: active ? '0 6px 20px rgba(79,140,255,0.3)' : 'none',
                 transition: 'all 0.25s cubic-bezier(0.34,1.2,0.64,1)',
-                position: 'relative',
               }}
             >
               <span style={{ fontSize: 18, flexShrink: 0 }}>{item.icon}</span>
               {!collapsed && <span>{item.label}</span>}
               {active && !collapsed && (
-                <div
-                  style={{
-                    marginLeft: 'auto',
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.8)',
-                  }}
-                />
+                <div style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.8)' }} />
               )}
-            </button>
+            </Link>
           )
         })}
       </nav>
 
-      {/* Bottom status */}
+      {/* Authoritative System Status Indicators */}
       {!collapsed && (
         <div style={{ padding: '0 16px', marginTop: 'auto' }}>
-          <div
+          <Link
+            href="/settings"
             style={{
               padding: '12px 16px',
               borderRadius: 16,
               background: 'rgba(246,248,251,0.8)',
               border: '1px solid rgba(255,255,255,0.9)',
-              boxShadow: '-4px -4px 10px rgba(255,255,255,0.9), 4px 4px 10px rgba(0,0,0,0.05)',
+              boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
               cursor: 'pointer',
+              textDecoration: 'none',
+              display: 'block',
             }}
-            onClick={() => router.push('/')}
           >
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 8 }}>SYSTEM STATUS</div>
-            {['ESP32 Node', 'MQTT Broker', 'AI Model Zoo'].map(s => (
-              <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 11, color: '#111827' }}>{s}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#4ADE80', animation: 'breathe 2.5s infinite' }} />
-                  <span style={{ fontSize: 10, color: '#4ADE80', fontWeight: 600 }}>LIVE</span>
-                </div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', marginBottom: 8, letterSpacing: 0.5 }}>SYSTEM STATUS</div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 11, color: '#111827' }}>ESP32 Nodes</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: hardware_summary.esp32_count > 0 ? '#4ADE80' : '#94A3B8' }} />
+                <span style={{ fontSize: 10, color: hardware_summary.esp32_count > 0 ? '#059669' : '#64748B', fontWeight: 700 }}>
+                  {hardware_summary.esp32_count > 0 ? `${hardware_summary.esp32_count} ONLINE` : 'OFFLINE'}
+                </span>
               </div>
-            ))}
-          </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 11, color: '#111827' }}>MQTT Broker</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: hardware_summary.mqtt_connected ? '#4ADE80' : '#94A3B8' }} />
+                <span style={{ fontSize: 10, color: hardware_summary.mqtt_connected ? '#059669' : '#64748B', fontWeight: 700 }}>
+                  {hardware_summary.mqtt_connected ? 'ONLINE' : 'DISCONNECTED'}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 11, color: '#111827' }}>AI Model Zoo</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: services.ai_engine === 'ACTIVE' ? '#4ADE80' : '#60A5FA' }} />
+                <span style={{ fontSize: 10, color: services.ai_engine === 'ACTIVE' ? '#059669' : '#2563EB', fontWeight: 700 }}>
+                  {services.ai_engine}
+                </span>
+              </div>
+            </div>
+          </Link>
         </div>
       )}
     </aside>

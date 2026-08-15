@@ -1,133 +1,53 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React from 'react'
 
-export default function LiveTelemetryStream() {
-  const [telemetry, setTelemetry] = useState([
-    { sensor: 'Wi-Fi RSSI Node #1', value: '-61 dBm', status: 'Optimal', color: '#4ADE80' },
-    { sensor: 'Wi-Fi RSSI Node #2', value: '-68 dBm', status: 'Good', color: '#4ADE80' },
-    { sensor: 'BLE Beacon Sniffer', value: '-74 dBm', status: 'Stable', color: '#00D4FF' },
-    { sensor: 'Smartphone Mic RMS', value: '0.24 RMS (52 dB)', status: 'Acoustic Detected', color: '#FBBF24' },
-    { sensor: 'Android IMU Accelerometer', value: '0.003 g (Linear)', status: 'Quiet', color: '#4F8CFF' },
-    { sensor: 'Packet Throughput', value: '1,847 pkts/min', status: '100% Delivery', color: '#4ADE80' },
-  ]);
+interface LiveTelemetryStreamProps {
+  systemMode?: 'OFFLINE' | 'REAL' | 'SIMULATION' | 'ERROR';
+}
 
-  const [logs, setLogs] = useState([
-    { time: '13:31:02', event: 'Packet Ingested from ESP32 Node #1 (-61 dBm)', type: 'info' },
-    { time: '13:31:05', event: 'BLE Beacon RSSI Attenuation Updated (-74 dBm)', type: 'info' },
-    { time: '13:31:08', event: 'Acoustic Harmonic Detected in Room 301', type: 'warning' },
-    { time: '13:31:12', event: 'AI Model Zoo Prediction: Room 301 (94% Confidence)', type: 'success' },
-    { time: '13:31:15', event: 'Mission Log Saved to data_lake/missions/', type: 'success' },
-  ]);
+export default function LiveTelemetryStream({ systemMode = 'OFFLINE' }: LiveTelemetryStreamProps) {
+  const isOffline = systemMode === 'OFFLINE'
 
-  useEffect(() => {
-    const t = setInterval(() => {
-      // Simulate live fluctuating telemetry values
-      setTelemetry(prev => prev.map(item => {
-        if (item.sensor.includes('Wi-Fi')) {
-          const val = Math.floor(-60 - Math.random() * 12);
-          return { ...item, value: `${val} dBm` };
-        }
-        if (item.sensor.includes('BLE')) {
-          const val = Math.floor(-70 - Math.random() * 10);
-          return { ...item, value: `${val} dBm` };
-        }
-        if (item.sensor.includes('Mic')) {
-          const rms = (0.2 + Math.random() * 0.1).toFixed(2);
-          return { ...item, value: `${rms} RMS` };
-        }
-        return item;
-      }));
-
-      // Append new event log periodically
-      const now = new Date().toTimeString().split(' ')[0];
-      setLogs(prev => [
-        { time: now, event: `Live Telemetry Sync — Packet #${Math.floor(1800 + Math.random() * 100)} Verified`, type: 'info' },
-        ...prev.slice(0, 7)
-      ]);
-    }, 2500);
-
-    return () => clearInterval(t);
-  }, []);
+  const streams = [
+    { name: 'ESP32 Sniffer Node 01', type: 'Wi-Fi CSI / RSSI', val: isOffline ? 'OFFLINE' : '-61 dBm', status: isOffline ? 'OFFLINE' : 'Optimal' },
+    { name: 'BLE Beacon Sniffer', type: 'Bluetooth Low Energy', val: isOffline ? 'OFFLINE' : '-74 dBm', status: isOffline ? 'OFFLINE' : 'Stable' },
+    { name: 'Smartphone Mic', type: 'Acoustic RMS', val: isOffline ? 'OFFLINE' : '0.24 RMS (52 dB)', status: isOffline ? 'OFFLINE' : 'Acoustic Detected' },
+    { name: 'Android IMU', type: 'Linear Acceleration', val: isOffline ? 'OFFLINE' : '0.003 g', status: isOffline ? 'OFFLINE' : 'Quiet' },
+  ]
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-      {/* Sensor Stream Card */}
-      <div className="neu-card" style={{ padding: '22px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>Live Sensor Telemetry Stream</div>
-            <div style={{ fontSize: 12, color: '#6B7280' }}>Real-time hardware signal metrics</div>
+    <div className="neu-card" style={{ padding: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: '#111827' }}>Live Multi-Sensor Telemetry Stream</div>
+          <div style={{ fontSize: 11, color: '#6B7280' }}>
+            {isOffline ? 'Awaiting hardware connection or simulation start' : 'Real-time validated sensor metrics'}
           </div>
-          <span style={{ fontSize: 10, fontWeight: 700, color: '#4ADE80', background: 'rgba(74,222,128,0.12)', padding: '4px 10px', borderRadius: 12, border: '1px solid rgba(74,222,128,0.25)' }}>
-            ● STREAMING
-          </span>
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {telemetry.map((t, idx) => (
-            <div
-              key={idx}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '10px 14px',
-                borderRadius: 12,
-                background: 'rgba(246,248,251,0.8)',
-                border: '1px solid rgba(255,255,255,0.9)',
-                fontSize: 12,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: t.color }} />
-                <span style={{ fontWeight: 600, color: '#111827' }}>{t.sensor}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontWeight: 700, color: '#4F8CFF', fontVariantNumeric: 'tabular-nums' }}>{t.value}</span>
-                <span style={{ fontSize: 10, color: '#6B7280' }}>{t.status}</span>
-              </div>
-            </div>
-          ))}
-        </div>
+        <span style={{
+          padding: '4px 12px', borderRadius: 14, fontSize: 10, fontWeight: 800,
+          background: isOffline ? '#F1F5F9' : '#06B6D4/10',
+          color: isOffline ? '#94A3B8' : '#0891B2',
+          border: '1px solid rgba(6,182,212,0.2)'
+        }}>
+          {isOffline ? 'NO LIVE STREAM' : 'STREAMING 100% DELIVERY'}
+        </span>
       </div>
 
-      {/* Operational Event Log */}
-      <div className="neu-card" style={{ padding: '22px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>Command Center Operations Log</div>
-            <div style={{ fontSize: 12, color: '#6B7280' }}>Timestamped event audit log</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        {streams.map((s) => (
+          <div key={s.name} style={{
+            background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(8px)',
+            borderRadius: 14, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.9)'
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase' }}>{s.type}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#111827', marginTop: 4 }}>{s.name}</div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: isOffline ? '#94A3B8' : '#4F8CFF', marginTop: 8 }}>{s.val}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: isOffline ? '#94A3B8' : '#059669', marginTop: 4 }}>{s.status}</div>
           </div>
-          <span style={{ fontSize: 10, fontWeight: 700, color: '#4F8CFF', background: 'rgba(79,140,255,0.1)', padding: '4px 10px', borderRadius: 12, border: '1px solid rgba(79,140,255,0.2)' }}>
-            ZERO-TRUST LOG
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 250, overflowY: 'auto' }}>
-          {logs.map((log, idx) => (
-            <div
-              key={idx}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '8px 12px',
-                borderRadius: 10,
-                background: 'white',
-                border: '1px solid rgba(0,0,0,0.04)',
-                fontSize: 11,
-              }}
-            >
-              <span style={{ fontWeight: 700, color: '#4F8CFF', fontVariantNumeric: 'tabular-nums', minWidth: 55 }}>
-                {log.time}
-              </span>
-              <div style={{ width: 5, height: 5, borderRadius: '50%', background: log.type === 'success' ? '#4ADE80' : log.type === 'warning' ? '#FBBF24' : '#00D4FF' }} />
-              <span style={{ color: '#111827', fontWeight: 500 }}>{log.event}</span>
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
     </div>
-  );
+  )
 }

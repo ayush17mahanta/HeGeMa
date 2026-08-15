@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useHEGEMARuntime } from '../context/RuntimeContext'
 
 interface NavbarProps {
   darkMode: boolean
@@ -9,14 +10,11 @@ interface NavbarProps {
 
 export default function Navbar({ darkMode, onToggleDark }: NavbarProps) {
   const [search, setSearch] = useState('')
-  const [notifications, setNotifications] = useState(3)
+  const [notifications, setNotifications] = useState(0)
   const [showNotifs, setShowNotifs] = useState(false)
-  const [timerSeconds, setTimerSeconds] = useState(5078) // 01:24:38
 
-  useEffect(() => {
-    const t = setInterval(() => setTimerSeconds(s => s + 1), 1000)
-    return () => clearInterval(t)
-  }, [])
+  const runtime = useHEGEMARuntime()
+  const { systemMode, mission, location, services } = runtime
 
   const fmtTimer = (s: number) => {
     const hrs = String(Math.floor(s / 3600)).padStart(2, '0')
@@ -45,17 +43,17 @@ export default function Navbar({ darkMode, onToggleDark }: NavbarProps) {
         zIndex: 40,
       }}
     >
-      {/* Left: Search & GPS Info */}
+      {/* Left: Search & Provenance Location */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <div style={{ position: 'relative', width: 240 }}>
+        <div style={{ position: 'relative', width: 220 }}>
           <input
             type="text"
-            placeholder="Search zones, devices, events..."
+            placeholder="Search zones, devices..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{
               width: '100%',
-              padding: '8px 16px 8px 36px',
+              padding: '8px 16px 8px 34px',
               borderRadius: 14,
               border: '1px solid rgba(255,255,255,0.9)',
               background: '#F6F8FB',
@@ -70,14 +68,14 @@ export default function Navbar({ darkMode, onToggleDark }: NavbarProps) {
           </span>
         </div>
 
-        {/* GPS Coordinates */}
-        <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ color: '#4F8CFF' }}>📍</span>
-          <span>28.6139° N, 77.2090° E</span>
+        {/* GPS Location (NO FALLBACK DEFAULTS) */}
+        <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ color: location ? '#4F8CFF' : '#94A3B8' }}>📍</span>
+          <span>{location ? location.label : 'LOCATION NOT AVAILABLE'}</span>
         </div>
       </div>
 
-      {/* Center: Mission Clock */}
+      {/* Center: Mission Clock (GATED BY ACTIVE MISSION STATUS) */}
       <div
         style={{
           display: 'flex',
@@ -85,25 +83,29 @@ export default function Navbar({ darkMode, onToggleDark }: NavbarProps) {
           gap: 10,
           padding: '6px 16px',
           borderRadius: 20,
-          background: 'linear-gradient(135deg, rgba(79,140,255,0.1) 0%, rgba(0,212,255,0.08) 100%)',
-          border: '1px solid rgba(79,140,255,0.2)',
+          background: mission.status === 'ACTIVE'
+            ? 'linear-gradient(135deg, rgba(79,140,255,0.1) 0%, rgba(0,212,255,0.08) 100%)'
+            : '#F1F5F9',
+          border: mission.status === 'ACTIVE' ? '1px solid rgba(79,140,255,0.2)' : '1px solid #E2E8F0',
         }}
       >
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#6B7280' }}>MISSION TIMER:</span>
-        <span style={{ fontSize: 14, fontWeight: 800, color: '#4F8CFF', fontVariantNumeric: 'tabular-nums' }}>
-          {fmtTimer(timerSeconds)}
+        <span style={{ fontSize: 11, fontWeight: 700, color: mission.status === 'ACTIVE' ? '#6B7280' : '#94A3B8' }}>
+          MISSION TIMER:
+        </span>
+        <span style={{ fontSize: 14, fontWeight: 800, color: mission.status === 'ACTIVE' ? '#4F8CFF' : '#64748B', fontVariantNumeric: 'tabular-nums' }}>
+          {fmtTimer(mission.elapsed_seconds)}
         </span>
       </div>
 
       {/* Right Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {/* Network & Battery */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, fontWeight: 600, color: '#6B7280' }}>
-          <span style={{ color: '#4ADE80' }}>⚡ 98%</span>
-          <span style={{ color: '#00D4FF' }}>📶 EDGE LOCAL</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        {/* Backend & Edge Service Health */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 600, color: '#6B7280' }}>
+          <span style={{ color: '#4ADE80' }}>🟢</span>
+          <span>LOCAL BACKEND {services.local_backend}</span>
         </div>
 
-        {/* Live Indicator */}
+        {/* System Mode Badge */}
         <div
           style={{
             display: 'flex',
@@ -111,8 +113,12 @@ export default function Navbar({ darkMode, onToggleDark }: NavbarProps) {
             gap: 6,
             padding: '6px 12px',
             borderRadius: 20,
-            background: 'rgba(74,222,128,0.12)',
-            border: '1px solid rgba(74,222,128,0.3)',
+            background: systemMode === 'REAL'
+              ? 'rgba(74,222,128,0.12)'
+              : (systemMode === 'SIMULATION' ? 'rgba(245,158,11,0.12)' : '#F1F5F9'),
+            border: systemMode === 'REAL'
+              ? '1px solid rgba(74,222,128,0.3)'
+              : (systemMode === 'SIMULATION' ? '1px solid rgba(245,158,11,0.3)' : '1px solid #E2E8F0'),
           }}
         >
           <div
@@ -120,13 +126,12 @@ export default function Navbar({ darkMode, onToggleDark }: NavbarProps) {
               width: 7,
               height: 7,
               borderRadius: '50%',
-              background: '#4ADE80',
-              animation: 'breathe 1.5s ease-in-out infinite',
-              boxShadow: '0 0 8px #4ADE80',
+              background: systemMode === 'REAL' ? '#4ADE80' : (systemMode === 'SIMULATION' ? '#F59E0B' : '#94A3B8'),
+              boxShadow: systemMode === 'REAL' ? '0 0 8px #4ADE80' : 'none',
             }}
           />
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#166534' }}>
-            COMMAND CENTER
+          <span style={{ fontSize: 11, fontWeight: 700, color: systemMode === 'REAL' ? '#166534' : (systemMode === 'SIMULATION' ? '#B45309' : '#64748B') }}>
+            {systemMode === 'REAL' ? 'REAL HARDWARE' : (systemMode === 'SIMULATION' ? 'SIMULATION' : 'OFFLINE')}
           </span>
         </div>
 
@@ -149,19 +154,9 @@ export default function Navbar({ darkMode, onToggleDark }: NavbarProps) {
             {notifications > 0 && (
               <span
                 style={{
-                  position: 'absolute',
-                  top: 3,
-                  right: 3,
-                  width: 15,
-                  height: 15,
-                  borderRadius: '50%',
-                  background: '#FF6B6B',
-                  color: 'white',
-                  fontSize: 9,
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  position: 'absolute', top: 3, right: 3, width: 15, height: 15,
+                  borderRadius: '50%', background: '#FF6B6B', color: 'white',
+                  fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
               >
                 {notifications}
@@ -169,32 +164,17 @@ export default function Navbar({ darkMode, onToggleDark }: NavbarProps) {
             )}
           </button>
 
-          {/* Notif Dropdown */}
           {showNotifs && (
             <div
               style={{
-                position: 'absolute', right: 0, top: 48, width: 300,
+                position: 'absolute', right: 0, top: 48, width: 280,
                 background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
                 borderRadius: 20, border: '1px solid rgba(255,255,255,0.9)',
-                boxShadow: '-10px -10px 24px rgba(255,255,255,0.95), 10px 10px 24px rgba(0,0,0,0.1)',
-                padding: 16, zIndex: 100,
-                animation: 'fade-in 0.25s ease',
+                boxShadow: '0 10px 24px rgba(0,0,0,0.1)', padding: 16, zIndex: 100,
               }}
             >
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 12 }}>Notifications</div>
-              {[
-                { title: 'Survivor A confirmed', time: '2m ago', color: '#4ADE80' },
-                { title: 'Audio anomaly in Room 302', time: '5m ago', color: '#FBBF24' },
-                { title: 'ESP32 #4 signal weak', time: '12m ago', color: '#FF6B6B' },
-              ].map((n, i) => (
-                <div key={i} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: i < 2 ? '1px solid rgba(0,0,0,0.05)' : 'none' }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: n.color, marginTop: 4 }} />
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>{n.title}</div>
-                    <div style={{ fontSize: 10, color: '#9CA3AF' }}>{n.time}</div>
-                  </div>
-                </div>
-              ))}
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#111827', marginBottom: 8 }}>System Audit Log</div>
+              <p style={{ margin: 0, fontSize: 11, color: '#64748B' }}>No active notifications.</p>
             </div>
           )}
         </div>
@@ -202,29 +182,16 @@ export default function Navbar({ darkMode, onToggleDark }: NavbarProps) {
         {/* Profile */}
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '4px 10px 4px 5px',
-            borderRadius: 18,
-            background: 'var(--card)',
-            boxShadow: 'var(--shadow-neu)',
-            border: 'var(--glass-border)',
-            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 5px',
+            borderRadius: 18, background: 'var(--card)', border: 'var(--glass-border)',
           }}
         >
           <div
             style={{
-              width: 30,
-              height: 30,
-              borderRadius: '50%',
+              width: 30, height: 30, borderRadius: '50%',
               background: 'linear-gradient(135deg, #4F8CFF 0%, #00D4FF 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 12,
-              fontWeight: 700,
-              color: 'white',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, fontWeight: 700, color: 'white',
             }}
           >
             IC
